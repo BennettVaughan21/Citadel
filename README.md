@@ -62,7 +62,7 @@ Key decisions are recorded as ADRs in `docs/adr/`; things that broke and what ch
 | Component | Type | Role |
 |---|---|---|
 | Claude Orchestration Brain | LXC | Manages other containers via SSH; runs Claude Code; executes plain-English instructions. |
-| Trading research workload | LXC | Paper-trading research workload: strategy logic fills simulated orders against live read-only market data into a local SQLite ledger (timestamp, price, size, balance) for P&L and drawdown review. No wallet or keys; spend caps and explicit human approval are required before any real-money step. Isolated, with no SSH path to the brain. |
+| Trading research workload | LXC | Automated trading research fleet: about 19 isolated systemd services ingest live market data (websocket plus REST backstop), size positions under per-book risk caps, and fill into simulated books. Promotion to real money is owner-only and gated, with kill switches and a graduation check. Python, SQLite, per-instance units, pytest suite. No SSH path to the brain. |
 | Daily News Briefing | LXC | RSS aggregation + Claude Code CLI synthesis (subscription-based, not a metered API key), usage-capped, served privately over LAN/Tailscale only. Own GitHub repo + deploy key; deliberately not part of the fleet SSH mesh. |
 
 Projects do **not** compare data against one another, so each keeps its own local storage — no shared database, no unification layer.
@@ -117,7 +117,7 @@ Clean-slate rebuild, started July 2026.
 
 - [x] Host prep: confirmed no internet exposure; firewall cleaned and verified; LVM activation fix in place
 - [x] Claude orchestration brain LXC
-- [x] prediction-market trader LXC (live, hardened, paper-trading POC phase — docs reconciled 2026-10-07)
+- [x] prediction-market trader LXC (live, hardened, fleet of simulated-book bots with owner-gated promotion to real money)
 - [x] Daily News Briefing LXC (CT113, 192.0.2.33) — live, hardened, pipeline verified end-to-end (RSS → Claude Code CLI synthesis → static HTML → nginx, LAN/Tailscale-only)
 - [x] Fleet SSH collapsed to hub-and-spoke (brain → leaves only), stale keys removed (2026-10-08)
 - [x] Nightly backups to USB SSD, restore-tested (2026-10-08); SSD thin-pool metadata undersize found and fixed
