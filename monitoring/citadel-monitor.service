@@ -1,0 +1,6 @@
+[Unit]
+Description=Citadel health monitor (backup age + SSD thin pool)
+
+[Service]
+Type=oneshot
+ExecStart=%h/citadel/monitoring/citadel-monitor.sh

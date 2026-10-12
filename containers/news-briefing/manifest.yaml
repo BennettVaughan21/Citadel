@@ -1,0 +1,45 @@
+name: news-briefing
+id: 113
+type: LXC
+os: Ubuntu 24.04 LTS
+status: live, hardened, pipeline verified end-to-end
+ip: 192.0.2.33
+user: admin
+timezone: America/New_York  # changed from Etc/UTC 2026-10-08 so the 06:00 timer means 06:00 ET
+storage:
+  backend: local-lvm
+  location: internal (pve/sda3) — user's explicit choice, overriding the general "non-critical → ssd-storage" guideline
+resources:
+  cpu_cores: 1
+  cpuunits: 512 (half default — intentionally loses CPU contention to every other guest; this is the lowest-priority workload on the host)
+  ram_mb: 1024
+  swap_mb: 512
+  rootfs_gb: 10
+network:
+  tun_device: passed through (/etc/pve/lxc/113.conf) for Tailscale
+  dns: 1.1.1.1 (set via `pct set --nameserver`, not systemd-resolved — see notes)
+  tailscale: "joined, key expiry disabled (2026-10-08)"
+  ufw: default deny incoming, allow 22/tcp, plus 80/tcp scoped to 192.0.2.0/24 and 100.64.0.0/10 only (never public)
+github:
+  repo: github.com/BennettVaughan21/DAILY-NEWS-BRIEFING
+  deploy_key: dedicated ed25519 key generated on this container (~/.ssh/news_briefing_deploy_ed25519), write access, not shared with any other container
+  cloned_at: /home/admin/DAILY-NEWS-BRIEFING
+python:
+  venv: /home/admin/DAILY-NEWS-BRIEFING/venv (Python 3.12.3) — feedparser, Jinja2, Markdown installed
+claude_code:
+  installed: native installer, v2.1.292, ~/.local/bin/claude
+  authenticated: yes — browser login via existing Claude subscription
+  usage: generate_report.py shells out to `claude -p` for the daily synthesis step (no metered API key involved — see notes)
+ssh_mesh:
+  member: "Leaf in hub-and-spoke model — this was the first container built that way, and on 2026-10-08 the whole fleet was converted to match. Brain reaches this container using brain's own existing identity key (~/.ssh/fleet_mesh_ed25519, installed as an authorized_key here), one direction only. This container does not hold a key to reach anything else, and nothing else can reach it. No reason to expand blast radius for a read-only news job."
+pipeline:
+  description: "Pulls curated RSS feeds (world/business/tech), synthesizes a morning briefing via Claude Code CLI, renders static HTML, served by nginx — private to LAN+Tailscale only, never public."
+  source_files: feeds.py, generate_report.py, usage_cap.py, templates/report.html.j2 (all in the GitHub repo above)
+  scheduling: systemd timer (news-briefing.timer), daily at 06:00 local, Persistent=true, RandomizedDelaySec=300
+  serving: nginx, document root /var/www/news-briefing (symlink to ~/DAILY-NEWS-BRIEFING/site), www-data added to the admin group to traverse the home directory
+  usage_cap: "Hard-coded in usage_cap.py: 2 calls/day, 40/month, tracked in a local SQLite file (state/usage.db, untracked). If hit, the claude -p call is skipped and the page falls back to a plain grouped headline digest — no synthesis attempted. This is a call-count cap, not a dollar cap, because synthesis rides the user's existing Claude subscription login rather than a metered API key — see notes."
+notes:
+  - "Originally designed around a metered Anthropic API key (console.anthropic.com) with a dollar-based spend cap, per citadel's general 'spend caps are mandatory for automated API usage' rule. User did not have/want a separate API billing account, and already has Claude Code installed and authenticated everywhere else via browser login (subscription-based) — pivoted to shelling out to `claude -p` instead. The 'hard cap built in from the start' principle was preserved by capping call *count* instead of dollars, since there's no per-call cost to cap under a subscription."
+  - "Provisioned manually via the Proxmox shell (pct create/exec run directly by the user), NOT via brain's claude-provisioner SSH path — see citadel CLAUDE.md's 'Known issues' section. Brain could not reach the Proxmox host over SSH when this container was built (TCP SYNs arrived at vmbr0 but were dropped, most likely by the host firewall's ctstate INVALID rule — root cause never conclusively confirmed, de-prioritized to unblock this build). Revisit before the next container needs provisioning."
+  - "DNS note: Proxmox injects /etc/resolv.conf directly into unprivileged containers (the '--- BEGIN/END PVE ---' block) based on `pct set --nameserver`, NOT via systemd-resolved — setting DNS=1.1.1.1 in resolved.conf alone has no effect and silently leaves the container pointed at the (unreachable until Tailscale is up) 100.100.100.100 resolver. Must use `pct set <ctid> --nameserver 1.1.1.1` from the host, and the container must be restarted (not just have resolv.conf regenerated) for it to take effect."
+  - "nesting=1 added to this container's features after `systemctl restart <service>` calls were hanging indefinitely inside it (Systemd 255 warning at creation time) — likely needed for clean cgroup delegation. Worth adding by default to future container-create commands rather than discovering it again."

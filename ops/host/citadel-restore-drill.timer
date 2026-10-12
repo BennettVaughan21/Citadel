@@ -1,0 +1,10 @@
+[Unit]
+Description=Monthly citadel restore drill
+
+[Timer]
+# 1st of the month at 04:30 host time, after the 02:30 backup window
+OnCalendar=*-*-01 04:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

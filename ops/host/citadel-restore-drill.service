@@ -1,0 +1,6 @@
+[Unit]
+Description=Citadel monthly restore drill (CT113 backup -> scratch CT -> verify -> destroy)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/citadel-restore-drill.sh

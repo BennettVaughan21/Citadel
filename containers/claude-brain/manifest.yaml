@@ -1,0 +1,23 @@
+name: claude-brain
+id: 110
+type: LXC
+os: Ubuntu 24.04 LTS
+status: live, hardened
+ip: 192.0.2.30
+user: admin
+timezone: America/New_York  # changed from Etc/UTC 2026-10-08
+storage:
+  backend: local-lvm
+  location: internal (pve/sda3)
+resources:
+  cpu_cores: 2
+  ram_mb: 2048
+  swap_mb: 512
+  rootfs_gb: 20
+network:
+  tun_device: passed through (/etc/pve/lxc/110.conf) for Tailscale
+  dns: 1.1.1.1
+notes:
+  - Claude Code installed via native installer (~/.local/bin/claude), auto-updates on, authenticated.
+  - Repo cloned at ~/citadel, pushes/pulls over SSH via dedicated ~/.ssh/github_ed25519 key.
+  - Baseline snapshot taken: brain-hardened-baseline.
