@@ -123,7 +123,7 @@ lvs -o lv_name,data_percent,metadata_percent ssd-storage
 
 ### Step 5b — lock down backup file permissions
 
-Found after Step 5: `/mnt/ssd-backups/dump` was `755` and the archives `644`, so **any** host user (including brain's `claude-provisioner`) could read full copies of every container: SSH private keys, GitHub deploy keys, Claude auth.
+Found after Step 5: `/mnt/ssd-backups/dump` was `755` and the archives `644`, so **any** host user (including brain's `provisioner`) could read full copies of every container: SSH private keys, GitHub deploy keys, Claude auth.
 
 ```bash
 chown root:100000 /mnt/ssd-backups /mnt/ssd-backups/dump
@@ -160,10 +160,10 @@ pvesh get /cluster/backup --output-format yaml
 
 ### Step 8 — let brain watch it (read-only)
 
-Add one line to `/etc/sudoers.d/claude-provisioner` so brain can list backups (check with `visudo -c`):
+Add one line to `/etc/sudoers.d/provisioner` so brain can list backups (check with `visudo -c`):
 
 ```
-claude-provisioner ALL=(root) NOPASSWD: /usr/sbin/pvesm list ssd-backups
+provisioner ALL=(root) NOPASSWD: /usr/sbin/pvesm list ssd-backups
 ```
 
 Brain can then check the age of the newest backup per container (it can no longer read the directory itself after Step 5b), and Meta%/Data% via `lvs`. Proper alerting comes in Phase 2.
@@ -192,7 +192,7 @@ The metadata extension (Step 1) can't be shrunk back. It doesn't need to be; it'
 ## Success criteria
 
 - [x] `ssd-storage/data` metadata ≥ 1 GiB (done 2026-10-08: tmeta + pmspare 112 MiB → 1 GiB, Meta% 10.46 → 1.62, VG free 46.57 → 44.79 GiB)
-- [x] `/mnt/ssd-backups` mounted (2026-10-08: thin LV `ssd-storage/backups` 300G, ext4 label `citadel-backups`, UUID 1fcc84b8-2965-4031-beeb-f11450007bb8, fstab entry added, backup at `/etc/fstab.bak-2026-10-08`)
+- [x] `/mnt/ssd-backups` mounted (2026-10-08: thin LV `ssd-storage/backups` 300G, ext4 label `citadel-backups`, UUID <redacted>, fstab entry added, backup at `/etc/fstab.bak-2026-10-08`)
 - [ ] `/mnt/ssd-backups` survives a host reboot, and boot still completes with the SSD unplugged
 - [x] Manual backup of 110/111/113 succeeded (2026-10-08, ~2 min total: 110 → 704M, 111 → 1.7G, 113 → 753M zstd; ~3.1G per full set, so full retention ≈ 35G, far under 300G. Pool afterwards: Data 1.12%, Meta 1.66%)
 - [x] CT113 restore test passed and the throwaway was destroyed (2026-10-08: restored to CT9113 on local-lvm at 430 MiB/s, never started, project files + hostname `news-briefing` verified via `pct mount`, then destroyed; `pct list` back to 110/111/113)
